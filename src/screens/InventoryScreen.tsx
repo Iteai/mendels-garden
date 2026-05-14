@@ -1,16 +1,17 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ListRenderItem } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ListRenderItem, Modal, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGameStore } from '../store/useGameStore';
-import { Coins, Leaf, Beaker } from 'lucide-react-native';
+import { Coins, Leaf, Beaker, Dna, X } from 'lucide-react-native';
 import { Theme } from '../theme/colors';
 import { SeedPacketSvg } from '../components/svg/SeedPacketSvg';
-import { HarvestedItem, Seed } from '../types';
+import { HarvestedItem, Seed, SeedParent } from '../types';
 
 export const InventoryScreen: React.FC = () => {
   const [tab, setTab] = useState<'seeds' | 'harvests'>('seeds');
   const [showLegend, setShowLegend] = useState(false);
+  const [selectedSeed, setSelectedSeed] = useState<Seed | null>(null);
   const seeds = useGameStore((state) => state.seeds);
   const inventory = useGameStore((state) => state.inventory);
   const money = useGameStore((state) => state.money);
@@ -25,8 +26,63 @@ export const InventoryScreen: React.FC = () => {
     { abbr: 'YLD', full: 'Yield Amount', range: '1-5 (quantity)' },
   ];
 
+  const renderPedigree = (pedigree?: SeedParent[]) => {
+    if (!pedigree || pedigree.length === 0) return null;
+
+    // Show parents (first 2) and grandparents (next up to 4)
+    const parents = pedigree.slice(0, 2);
+    const grandparents = pedigree.slice(2);
+
+    return (
+      <View style={styles.pedigreeContainer}>
+        <Text style={styles.pedigreeTitle}>Lineage</Text>
+        <View style={styles.pedigreeTree}>
+          {/* Parents */}
+          <View style={styles.pedigreeGen}>
+            <Text style={styles.pedigreeGenLabel}>P{parents[0]?.species === parents[1]?.species ? 'arents' : 'arent 1'}</Text>
+            {parents.map((p, i) => (
+              <View key={i} style={styles.pedigreeNode}>
+                <View style={styles.pedigreeDot} />
+                <Text style={styles.pedigreeNodeText} numberOfLines={1}>{p.name}</Text>
+              </View>
+            ))}
+          </View>
+          {/* Arrow */}
+          <Text style={styles.pedigreeArrow}>↓</Text>
+          {/* This seed */}
+          <View style={styles.pedigreeGen}>
+            <Text style={styles.pedigreeGenLabel}>Offspring</Text>
+            <View style={[styles.pedigreeNode, styles.pedigreeNodeActive]}>
+              <View style={[styles.pedigreeDot, { backgroundColor: '#18FFFF' }]} />
+              <Text style={[styles.pedigreeNodeText, { color: '#18FFFF' }]}>This Seed</Text>
+            </View>
+          </View>
+          {/* Grandparents if any */}
+          {grandparents.length > 0 && (
+            <>
+              <Text style={styles.pedigreeArrow}>↑</Text>
+              <View style={styles.pedigreeGen}>
+                <Text style={styles.pedigreeGenLabel}>Grandparents</Text>
+                {grandparents.map((gp, i) => (
+                  <View key={i} style={styles.pedigreeNode}>
+                    <View style={[styles.pedigreeDot, { backgroundColor: 'rgba(255,255,255,0.3)' }]} />
+                    <Text style={styles.pedigreeNodeText} numberOfLines={1}>{gp.name}</Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+        </View>
+      </View>
+    );
+  };
+
   const renderSeed: ListRenderItem<Seed> = ({ item }) => (
-    <View style={styles.cardWrapper}>
+    <TouchableOpacity
+      style={styles.cardWrapper}
+      onPress={() => setSelectedSeed(item)}
+      activeOpacity={0.8}
+    >
       <View style={styles.packetContainer}>
         <SeedPacketSvg species={item.species} rarity={item.rarity} width={70} height={98} />
       </View>
@@ -45,6 +101,13 @@ export const InventoryScreen: React.FC = () => {
           <Text style={[styles.rarityText, { color: Theme.rarity[item.rarity] }]}>
             {item.rarity} • Gen {item.genetics.generation}
           </Text>
+
+          {item.pedigree && item.pedigree.length > 0 && (
+            <View style={styles.pedigreeTag}>
+              <Dna color="#18FFFF" size={12} />
+              <Text style={styles.pedigreeTagText}>Has lineage</Text>
+            </View>
+          )}
 
           <View style={styles.genesGrid}>
             <View style={styles.geneBox}>
@@ -77,7 +140,7 @@ export const InventoryScreen: React.FC = () => {
           </View>
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderHarvest: ListRenderItem<HarvestedItem> = ({ item }) => (
@@ -123,7 +186,11 @@ export const InventoryScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       {showLegend && (
-        <View style={styles.legendOverlay}>
+        <TouchableOpacity 
+          style={styles.legendOverlay}
+          activeOpacity={1}
+          onPress={() => setShowLegend(false)}
+        >
           <View style={styles.legendBox}>
             <Text style={styles.legendTitle}>Phenotype Legend</Text>
             {phenotypeLegend.map((item) => (
@@ -140,7 +207,7 @@ export const InventoryScreen: React.FC = () => {
               <Text style={styles.legendCloseText}>Close</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </TouchableOpacity>
       )}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -206,6 +273,60 @@ export const InventoryScreen: React.FC = () => {
           }
         />
       )}
+      {/* Seed Detail / Pedigree Modal */}
+      <Modal visible={selectedSeed !== null} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <ScrollView contentContainerStyle={styles.modalScrollContent}>
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Seed Details</Text>
+                <TouchableOpacity onPress={() => setSelectedSeed(null)}>
+                  <X color="#18FFFF" size={28} />
+                </TouchableOpacity>
+              </View>
+
+              {selectedSeed && (
+                <>
+                  <View style={styles.modalSeedHeader}>
+                    <SeedPacketSvg species={selectedSeed.species} rarity={selectedSeed.rarity} width={60} height={84} />
+                    <View style={styles.modalSeedInfo}>
+                      <Text style={styles.modalSeedName}>{selectedSeed.name}</Text>
+                      <Text style={[styles.modalRarity, { color: Theme.rarity[selectedSeed.rarity] }]}>
+                        {selectedSeed.rarity} • Gen {selectedSeed.genetics.generation}
+                      </Text>
+                      {selectedSeed.pedigree && selectedSeed.pedigree.length > 0 && (
+                        <View style={styles.modalLineageTag}>
+                          <Dna color="#18FFFF" size={14} />
+                          <Text style={styles.modalLineageText}>Has genealogy</Text>
+                        </View>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.modalGenesGrid}>
+                    <View style={styles.modalGeneBox}><Text style={styles.modalGeneLabel}>CLR</Text><Text style={styles.modalGeneValue}>{selectedSeed.phenotype.colorScore}</Text></View>
+                    <View style={styles.modalGeneBox}><Text style={styles.modalGeneLabel}>SIZ</Text><Text style={styles.modalGeneValue}>{selectedSeed.phenotype.sizeScore}</Text></View>
+                    <View style={styles.modalGeneBox}><Text style={styles.modalGeneLabel}>SHP</Text><Text style={styles.modalGeneValue}>{selectedSeed.phenotype.shapeScore}</Text></View>
+                    <View style={styles.modalGeneBox}><Text style={styles.modalGeneLabel}>TXR</Text><Text style={styles.modalGeneValue}>{selectedSeed.phenotype.textureScore}</Text></View>
+                    <View style={styles.modalGeneBox}><Text style={styles.modalGeneLabel}>GRO</Text><Text style={styles.modalGeneValue}>{selectedSeed.phenotype.growthSpeed}</Text></View>
+                    <View style={styles.modalGeneBox}><Text style={styles.modalGeneLabel}>YLD</Text><Text style={styles.modalGeneValue}>{selectedSeed.phenotype.yieldAmount}</Text></View>
+                  </View>
+
+                  {/* Pedigree Tree */}
+                  {renderPedigree(selectedSeed.pedigree)}
+
+                  <TouchableOpacity
+                    style={styles.modalCloseBtn}
+                    onPress={() => setSelectedSeed(null)}
+                  >
+                    <Text style={styles.modalCloseBtnText}>Close</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          </ScrollView>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -543,6 +664,191 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
+  },
+  // Pedigree tag in card
+  pedigreeTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
+  pedigreeTagText: {
+    color: '#18FFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  // Pedigree tree in modal
+  pedigreeContainer: {
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(24, 255, 255, 0.15)',
+  },
+  pedigreeTitle: {
+    color: '#18FFFF',
+    fontSize: 14,
+    fontWeight: '900',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  pedigreeTree: {
+    alignItems: 'center',
+  },
+  pedigreeGen: {
+    alignItems: 'center',
+    marginVertical: 4,
+  },
+  pedigreeGenLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 9,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 6,
+  },
+  pedigreeNode: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginVertical: 2,
+    minWidth: 150,
+  },
+  pedigreeNodeActive: {
+    backgroundColor: 'rgba(24, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(24, 255, 255, 0.3)',
+  },
+  pedigreeNodeText: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  pedigreeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.5)',
+  },
+  pedigreeArrow: {
+    color: 'rgba(255,255,255,0.3)',
+    fontSize: 18,
+    marginVertical: 2,
+  },
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(5, 11, 8, 0.95)',
+    justifyContent: 'center',
+    padding: 20,
+  },
+  modalScrollContent: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#111D16',
+    borderRadius: 24,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(24, 255, 255, 0.2)',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    color: '#18FFFF',
+    fontSize: 20,
+    fontWeight: '900',
+  },
+  modalSeedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+    marginBottom: 16,
+  },
+  modalSeedInfo: {
+    flex: 1,
+  },
+  modalSeedName: {
+    color: '#FFFFFF',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  modalRarity: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  modalLineageTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    backgroundColor: 'rgba(24, 255, 255, 0.1)',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    alignSelf: 'flex-start',
+  },
+  modalLineageText: {
+    color: '#18FFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  modalGenesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    padding: 12,
+    borderRadius: 12,
+  },
+  modalGeneBox: {
+    width: '30%',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+  },
+  modalGeneLabel: {
+    color: 'rgba(255,255,255,0.4)',
+    fontSize: 9,
+    fontWeight: 'bold',
+    letterSpacing: 1,
+  },
+  modalGeneValue: {
+    color: '#18FFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    marginTop: 2,
+  },
+  modalCloseBtn: {
+    marginTop: 20,
+    backgroundColor: 'rgba(24, 255, 255, 0.15)',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalCloseBtnText: {
+    color: '#18FFFF',
+    fontSize: 16,
+    fontWeight: '900',
+    textTransform: 'uppercase',
   },
   emptyContainer: {
     flex: 1,

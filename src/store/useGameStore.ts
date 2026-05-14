@@ -537,14 +537,14 @@ export const useGameStore = create<GameStore>()(
       harvestPlant: (potId) =>
         set((state) => {
           const pot = state.pots.find((p) => p.id === potId);
-          if (!pot || !pot.plant || (pot.plant.stage !== 'HarvestReady' && pot.plant.stage !== 'Fruiting' && pot.plant.stage !== 'Ripening')) {
+          if (!pot || !pot.plant || (pot.plant.stage !== 'HarvestReady' && pot.plant.stage !== 'Fruiting')) {
             return state;
           }
 
           const plant = pot.plant;
 
           // Check if it's time for multi-harvest
-          const canMultiHarvest = plant.harvestsRemaining > 1 && (plant.stage === 'HarvestReady' || plant.stage === 'Fruiting' || plant.stage === 'Ripening');
+          const canMultiHarvest = plant.harvestsRemaining > 1 && (plant.stage === 'HarvestReady' || plant.stage === 'Fruiting');
 
           const shopRef = SHOP_ITEMS.find((i) => i.variety === plant.variety);
           const baseValue = shopRef ? Math.floor(shopRef.price * 1.5) : 15;

@@ -79,7 +79,11 @@ export const PotDisplay: React.FC<PotDisplayProps> = ({
   return (
     <View style={[styles.container, activeFertilizer === 'Mutation' && styles.mutatedContainer]}>
       {showLegend && (
-        <View style={styles.legendOverlay}>
+        <TouchableOpacity 
+          style={styles.legendOverlay}
+          activeOpacity={1}
+          onPress={() => setShowLegend(false)}
+        >
           <View style={styles.legendBox}>
             <Text style={styles.legendTitle}>Phenotype Legend</Text>
             {phenotypeLegend.map((item) => (
@@ -96,7 +100,7 @@ export const PotDisplay: React.FC<PotDisplayProps> = ({
               <Text style={styles.legendCloseText}>Close</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </TouchableOpacity>
       )}
       <View style={styles.graphicsContainer}>
         {plant && (
@@ -241,7 +245,7 @@ export const PotDisplay: React.FC<PotDisplayProps> = ({
                 <Droplets color="#FFF" size={18} />
               </TouchableOpacity>
 
-              {(plant.stage === 'HarvestReady' || plant.stage === 'Fruiting' || plant.stage === 'Ripening') && plant.health > 0 && (
+              {(plant.stage === 'HarvestReady' || plant.stage === 'Fruiting') && plant.health > 0 && (
                 <TouchableOpacity
                   style={[styles.actionButton, styles.harvestBtn]}
                   onPress={onHarvest}
@@ -250,7 +254,7 @@ export const PotDisplay: React.FC<PotDisplayProps> = ({
                 </TouchableOpacity>
               )}
 
-              {plant.stage !== 'HarvestReady' && plant.stage !== 'Dead' && plant.stage !== 'Fruiting' && plant.stage !== 'Ripening' && (
+              {plant.stage !== 'HarvestReady' && plant.stage !== 'Dead' && plant.stage !== 'Fruiting' && (
                 <TouchableOpacity
                   style={[styles.actionButton, styles.fertilizeBtn]}
                   onPress={onFertilize}
