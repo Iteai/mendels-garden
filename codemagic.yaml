@@ -1,0 +1,32 @@
+workflows:
+  android-workflow:
+    name: Android APK Build
+    max_build_duration: 120
+    environment:
+      node: 20
+      java: 17
+    scripts:
+      - name: Install dependencies
+        script: npm install
+      - name: Download missing assets
+        script: |
+          mkdir -p assets
+          curl -L -o assets/icon.png "https://dummyimage.com/1024x1024/1a2e1a/81c784.png"
+          curl -L -o assets/splash.png "https://dummyimage.com/1242x2436/1a2e1a/81c784.png"
+          curl -L -o assets/adaptive-icon.png "https://dummyimage.com/1024x1024/1a2e1a/81c784.png"
+          curl -L -o assets/favicon.png "https://dummyimage.com/192x192/1a2e1a/81c784.png"
+      - name: Expo Prebuild (Generate Native Android Code)
+        script: npx expo prebuild --platform android --clean
+      - name: Build Android Release APK
+        script: |
+          cd android
+          ./gradlew assembleRelease
+    artifacts:
+      - android/app/build/outputs/apk/release/**/*.apk
+    publishing:
+      email:
+        recipients:
+          - your-email@example.com
+        notify:
+          success: true
+          failure: true
