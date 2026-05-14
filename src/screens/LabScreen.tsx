@@ -53,8 +53,10 @@ export const LabScreen: React.FC = () => {
 
     setTimeout(() => {
       const newGenetics = crossbreed(parentA.genetics, parentB.genetics);
-      const newSpecies = Math.random() > 0.5 ? parentA.species : parentB.species;
-      const newVariety = Math.random() > 0.5 ? parentA.variety : parentB.variety;
+      // Keep species/variety from one parent to avoid invalid combinations
+      const parentToUse = Math.random() > 0.5 ? parentA : parentB;
+      const newSpecies = parentToUse.species;
+      const newVariety = parentToUse.variety;
       
       // Create pedigree
       const pedigree = createPedigree(
@@ -85,28 +87,63 @@ export const LabScreen: React.FC = () => {
       useGameStore.setState((state) => {
         const newSeeds = [...state.seeds];
         
+        // Handle removing seeds - ensure we don't remove wrong seeds if indices are the same
         if (idxA !== -1) {
           if (newSeeds[idxA].quantity > 1) newSeeds[idxA].quantity -= 1;
           else newSeeds.splice(idxA, 1);
         }
 
-        let adjustedIdxB = idxB;
-        if (idxA !== -1 && idxB > idxA) {
-          adjustedIdxB = idxB - 1;
-        }
+        // If same seed used twice and it wasn't already removed, decrement again
+        if (idxB !== -1) {
+          // If idxA was removed and idxB > idxA, adjust the index
+          let adjustedIdxB = idxB;
+          if (idxA !== -1 && idxA < idxB && newSeeds.length === state.seeds.length - 1) {
+            adjustedIdxB = idxB - 1;
+          } else if (idxA === idxB) {
+            // Same seed used twice - check if it still exists after first removal
+            const seedStillExists = newSeeds.some(s => s.id === parentBId);
+            if (seedStillExists) {
+              const currentIdxB = newSeeds.findIndex(s => s.id === parentBId);
+              adjustedIdxB = currentIdxB;
+            } else {
+              adjustedIdxB = -1;
+            }
+          }
 
-        if (adjustedIdxB !== -1 && newSeeds[adjustedIdxB]) {
-          if (newSeeds[adjustedIdxB].quantity > 1) newSeeds[adjustedIdxB].quantity -= 1;
-          else newSeeds.splice(adjustedIdxB, 1);
+          if (adjustedIdxB !== -1 && newSeeds[adjustedIdxB]) {
+            if (newSeeds[adjustedIdxB].quantity > 1) newSeeds[adjustedIdxB].quantity -= 1;
+            else newSeeds.splice(adjustedIdxB, 1);
+          }
         }
 
         newSeeds.push(newSeed);
 
-        // Also check if this is the first of this strain for encyclopedia
-        const phenoId = `${newSeed.species}-${newSeed.variety}-C${newGenetics.color.allele1 === 'A' || newGenetics.color.allele2 === 'A' ? 'D' : 'R'}-S${newGenetics.size.allele1 === 'B' || newGenetics.size.allele2 === 'B' ? 'D' : 'R'}-G${newGenetics.generation}`;
+        // Register discovery for encyclopedia using store's getPhenotypeId function
+        const getPhenotypeIdLocal = (species: any, variety: any, genetics: any): string => {
+          const isColorDom = genetics.color.allele1 === 'A' || genetics.color.allele2 === 'A';
+          const isSizeDom = genetics.size.allele1 === 'B' || genetics.size.allele2 === 'B';
+          return `${species}-${variety}-C${isColorDom ? 'D' : 'R'}-S${isSizeDom ? 'D' : 'R'}-G${genetics.generation}`;
+        };
+        const phenoId = getPhenotypeIdLocal(newSeed.species, newSeed.variety, newGenetics);
+        const newEncyclopedia = { ...state.encyclopedia };
+        if (!newEncyclopedia[phenoId]) {
+          newEncyclopedia[phenoId] = {
+            id: phenoId,
+            species: newSeed.species,
+            variety: newSeed.variety,
+            name: newSeed.name,
+            discoveredAt: Date.now(),
+            rarity: newSeed.rarity,
+            generation: newSeed.genetics.generation,
+            colorScore: newSeed.phenotype.colorScore,
+            sizeScore: newSeed.phenotype.sizeScore,
+            aromaScore: newSeed.phenotype.aromaScore,
+          };
+        }
 
         return { 
-          seeds: newSeeds, 
+          seeds: newSeeds,
+          encyclopedia: newEncyclopedia,
           lastSavedAt: Date.now(),
           totalCrossbreeds: state.totalCrossbreeds + 1,
         };

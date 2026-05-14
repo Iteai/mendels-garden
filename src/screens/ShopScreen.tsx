@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, Alert } from 'react
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useGameStore } from '../store/useGameStore';
-import { SHOP_ITEMS } from '../constants/plants';
+import { SHOP_ITEMS, ShopItem } from '../constants/plants';
 import { SHOP_CONSUMABLES } from '../constants/items';
 import { ShoppingCart, Coins, Beaker, FlaskConical } from 'lucide-react-native';
 import { Theme } from '../theme/colors';
@@ -15,17 +15,17 @@ export const ShopScreen: React.FC = () => {
   const buySeed = useGameStore((state) => state.buySeed);
   const buyConsumable = useGameStore((state) => state.buyConsumable);
 
-  const handleBuySeed = (item: any) => {
+  const handleBuySeed = (item: ShopItem) => {
     if (money >= item.price) buySeed(item.id);
     else Alert.alert("Insufficient Funds", "Sell organic harvests to earn more coins.");
   };
 
-  const handleBuyConsumable = (item: any) => {
+  const handleBuyConsumable = (item: typeof SHOP_CONSUMABLES[0]) => {
     if (money >= item.price) buyConsumable(item.id);
     else Alert.alert("Insufficient Funds", "Sell organic harvests to earn more coins.");
   };
 
-  const renderSeed = ({ item }: { item: any }) => (
+  const renderSeed = ({ item }: { item: ShopItem }) => (
     <View style={styles.cardWrapper}>
       <View style={styles.packetContainer}>
         <SeedPacketSvg species={item.species} rarity={item.rarity} width={70} height={98} />
@@ -66,7 +66,7 @@ export const ShopScreen: React.FC = () => {
     </View>
   );
 
-  const renderConsumable = ({ item }: { item: any }) => (
+  const renderConsumable = ({ item }: { item: typeof SHOP_CONSUMABLES[0] }) => (
     <View style={[styles.card, { marginLeft: 0, marginBottom: 16 }]}>
       <View style={[styles.cardContent, { paddingLeft: 16 }]}>
         <View style={styles.headerRow}>

@@ -1,5 +1,5 @@
 import { Plant, GrowthStage, WeatherCondition } from '../types';
-import { getWeatherGrowthMultiplier } from '../genetics/phenotype';
+import { getWeatherGrowthMultiplier, getDroughtResistance } from '../genetics/phenotype';
 
 export const STAGE_DURATIONS_MS: Record<GrowthStage, number> = {
   Seed: 1000 * 60 * 5, // 5 mins
@@ -61,11 +61,12 @@ export const calculateOfflineProgress = (plant: Plant, timeDeltaMs: number, weat
     }
   }
 
-  // Calculate water depletion based on drought tolerance
-  const hasDroughtTolerant = currentPlant.genetics.droughtTolerance.allele1 === 'F' || currentPlant.genetics.droughtTolerance.allele2 === 'F';
-  const depletionRate = hasDroughtTolerant ? 3 : 5; // % per hour
+  // Calculate water depletion based on drought tolerance phenotype
+  const droughtResistance = getDroughtResistance(currentPlant.phenotype.droughtTolerance);
+  const baseDepletionRate = 5; // % per hour
+  const adjustedDepletionRate = baseDepletionRate * droughtResistance; // Lower values = more resistant
   const hoursOffline = timeDeltaMs / (1000 * 60 * 60);
-  currentPlant.waterLevel = Math.max(0, currentPlant.waterLevel - (hoursOffline * depletionRate));
+  currentPlant.waterLevel = Math.max(0, currentPlant.waterLevel - (hoursOffline * adjustedDepletionRate));
 
   // Health penalty if water is 0
   if (currentPlant.waterLevel === 0) {

@@ -102,7 +102,6 @@ const getPhenotypeId = (
 ): string => {
   const isColorDom = genetics.color.allele1 === 'A' || genetics.color.allele2 === 'A';
   const isSizeDom = genetics.size.allele1 === 'B' || genetics.size.allele2 === 'B';
-
   return `${species}-${variety}-C${isColorDom ? 'D' : 'R'}-S${isSizeDom ? 'D' : 'R'}-G${genetics.generation}`;
 };
 
@@ -204,7 +203,7 @@ export const useGameStore = create<GameStore>()(
             // 5% chance per tick to get pests, modified by resistance
             const resistance = pot.plant.phenotype.diseaseResistance;
             const infectionChance = 0.05 * (1 - getPestResistance(resistance, ''));
-            if (Math.random() > infectionChance) return pot;
+            if (Math.random() < infectionChance) return pot;
 
             const pest = PEST_TYPES[Math.floor(Math.random() * PEST_TYPES.length)];
             const severity = 10 + Math.floor(Math.random() * 30);
@@ -243,7 +242,7 @@ export const useGameStore = create<GameStore>()(
               case 'harvest': progress = state.totalHarvests; break;
               case 'crossbreed': progress = state.totalCrossbreeds; break;
               case 'discover': progress = Object.keys(state.encyclopedia).length; break;
-              case 'money': progress = 2000 - state.money; break; // sum of all money earned (approximate)
+              case 'money': progress = state.money; break; // Track money earned
               case 'level': progress = state.level; break;
             }
             return {
@@ -372,7 +371,7 @@ export const useGameStore = create<GameStore>()(
       useFertilizer: (potId, consumableId) =>
         set((state) => {
           const consumableIndex = state.consumables.findIndex((c) => c.id === consumableId);
-          if (consumableIndex === -1 || state.consumables[consumableIndex].quantity <= 0) {
+          if (consumableIndex === -1 || !state.consumables[consumableIndex] || state.consumables[consumableIndex].quantity <= 0) {
             return state;
           }
 
@@ -408,7 +407,15 @@ export const useGameStore = create<GameStore>()(
                   activeFertilizer: 'Fungicide',
                 };
               case 'RootBooster':
-                return { ...pot, activeFertilizer: 'RootBooster' };
+                // RootBooster increases water level and improves water absorption
+                return { 
+                  ...pot, 
+                  plant: {
+                    ...pot.plant,
+                    waterLevel: Math.min(100, pot.plant.waterLevel + 20),
+                  },
+                  activeFertilizer: 'RootBooster' 
+                };
               case 'YieldBoost':
                 return { ...pot, activeFertilizer: 'YieldBoost' };
               case 'GeneStabilizer':
@@ -462,8 +469,8 @@ export const useGameStore = create<GameStore>()(
           }
 
           // Check if pot is unlocked
-          const potNumber = parseInt(potId.split('_')[1]);
-          if (potNumber > state.unlockedPots) return state;
+          const potNumber = parseInt(potId.split('_')[1], 10);
+          if (isNaN(potNumber) || potNumber > state.unlockedPots) return state;
 
           const seed = state.seeds[seedIndex];
           const newSeeds = [...state.seeds];
@@ -608,6 +615,7 @@ export const useGameStore = create<GameStore>()(
               stage: 'Flowering', // Go back to flowering for next cycle
               growthProgress: 0,
               yieldAmount: 0,
+              waterLevel: 100, // Reset water for next cycle
               pest: 'None',
               pestSeverity: 0,
             };
@@ -678,10 +686,10 @@ export const useGameStore = create<GameStore>()(
               : pot
           );
 
-          // Fluctuate market prices while offline
+          // Gradually fluctuate market prices while offline using same logic as game loop
           const updatedPrices = state.marketPrices.map((mp) => ({
             ...mp,
-            currentMultiplier: 0.7 + Math.random() * 0.6, // Random between 0.7 and 1.3
+            currentMultiplier: Math.max(0.5, Math.min(2.0, mp.currentMultiplier + (Math.random() - 0.5) * 0.2)),
             lastFluctuated: now,
           }));
 
@@ -724,13 +732,6 @@ export const useGameStore = create<GameStore>()(
 
             let plant = calculateOfflineProgress(pot.plant, deltaMs, weather);
 
-            // Handle root booster
-            if (pot.activeFertilizer === 'RootBooster') {
-              const droughtResist = getDroughtResistance(plant.phenotype.droughtTolerance);
-              const waterConservation = 1 - (1 - droughtResist) * 0.5;
-              // Water depletes slower - handled inside timeUtils already
-            }
-
             // Handle pest damage
             if (plant.pest !== 'None' && plant.stage !== 'HarvestReady' && plant.stage !== 'Dead') {
               const resistance = plant.phenotype.diseaseResistance;
@@ -747,8 +748,12 @@ export const useGameStore = create<GameStore>()(
               }
             }
 
-            // Soil degradation
-            const newSoilQuality = Math.max(20, pot.soilQuality - (deltaMs * 0.0001));
+            // Soil degradation with slow recovery
+            let newSoilQuality = Math.max(20, pot.soilQuality - (deltaMs * 0.0001));
+            // Slow soil recovery when healthy plant is growing
+            if (plant.stage !== 'Dead' && plant.pest === 'None' && plant.stage !== 'HarvestReady') {
+              newSoilQuality = Math.min(100, newSoilQuality + (deltaMs * 0.00005));
+            }
 
             return { ...pot, plant, soilQuality: newSoilQuality };
           });
