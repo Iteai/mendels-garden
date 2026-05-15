@@ -1,4 +1,4 @@
-export type Species = 'Chili' | 'Tomato' | 'Basil' | 'Radish';
+export type Species = 'Tomato' | 'Chili' | 'Basil' | 'Radish';
 
 export type Variety =
   | 'Cherry'
@@ -31,14 +31,11 @@ export type GrowthStage =
   | 'Pollination'
   | 'Fruiting'
   | 'Ripening'
-  | 'HarvestReady'
-  | 'Dead';
+  | 'HarvestReady';
 
 export type Allele = 'A' | 'a' | 'B' | 'b' | 'C' | 'c' | 'D' | 'd' | 'E' | 'e' | 'F' | 'f' | 'G' | 'g';
 export type Rarity = 'Common' | 'Rare' | 'Epic' | 'Legendary';
-export type ConsumableType = 'Growth' | 'Mutation' | 'Fungicide' | 'RootBooster' | 'YieldBoost' | 'GeneStabilizer';
-export type PestType = 'Aphids' | 'Fungus' | 'RootRot' | 'Whiteflies' | 'None';
-export type WeatherCondition = 'Sunny' | 'Cloudy' | 'Rainy' | 'Hot' | 'Cold';
+export type ConsumableType = 'GrowthBoost' | 'PollutionBoost';
 
 export interface GenePair {
   allele1: Allele;
@@ -52,11 +49,12 @@ export interface PlantGenetics {
   yield: GenePair;
   shape: GenePair;
   texture: GenePair;
-  diseaseResistance: GenePair;
-  droughtTolerance: GenePair;
-  aroma: GenePair;
+  flavor: GenePair;
+  aromaIntensity: GenePair;
   generation: number;
-  mutationCount: number;
+  isHybrid: boolean;
+  parentAId?: string;
+  parentBId?: string;
 }
 
 export interface PhenotypeTraits {
@@ -66,8 +64,7 @@ export interface PhenotypeTraits {
   textureScore: number;
   growthSpeed: number;
   yieldAmount: number;
-  diseaseResistance: number;
-  droughtTolerance: number;
+  flavorScore: number;
   aromaScore: number;
 }
 
@@ -85,9 +82,7 @@ export interface Plant {
   health: number;
   growthProgress: number;
   yieldAmount: number;
-  isHybrid: boolean;
-  pest: PestType;
-  pestSeverity: number;
+  pollinated: boolean;
   harvestsRemaining: number;
   maxHarvests: number;
 }
@@ -101,14 +96,7 @@ export interface Seed {
   name: string;
   quantity: number;
   rarity: Rarity;
-  pedigree?: SeedParent[];
-}
-
-export interface SeedParent {
-  id: string;
-  name: string;
-  species: Species;
-  variety: Variety;
+  description: string;
 }
 
 export interface HarvestedItem {
@@ -120,7 +108,13 @@ export interface HarvestedItem {
   value: number;
   rarity: Rarity;
   growthQuality: number;
-  soilQuality: number;
+  geneticsInfo: {
+    generation: number;
+    isHybrid: boolean;
+    colorScore: number;
+    sizeScore: number;
+    yieldAmount: number;
+  };
   harvestTiming: number;
 }
 
@@ -139,6 +133,7 @@ export interface Pot {
   size: 'Small' | 'Medium' | 'Large';
   soilQuality: number;
   activeFertilizer?: ConsumableType;
+  fertilizerExpiresAt?: number;
 }
 
 export interface DiscoveredStrain {
@@ -149,28 +144,27 @@ export interface DiscoveredStrain {
   discoveredAt: number;
   rarity: Rarity;
   generation: number;
+  isHybrid: boolean;
   colorScore?: number;
   sizeScore?: number;
+  yieldScore?: number;
   aromaScore?: number;
 }
 
-export interface Mission {
+export interface ResearchRecord {
   id: string;
   title: string;
   description: string;
-  type: 'crossbreed' | 'harvest' | 'discover' | 'money' | 'level';
-  target: number;
-  progress: number;
-  reward: { money?: number; xp?: number; seedId?: string };
-  completed: boolean;
-  claimed: boolean;
-}
-
-export interface MarketPrice {
-  species: Species;
-  basePrice: number;
-  currentMultiplier: number;
-  lastFluctuated: number;
+  type: 'f1_hybrid' | 'f2_segregation' | 'trait_fixation' | 'new_discovery';
+  seedId: string;
+  generation: number;
+  completedAt: number;
+  findings: {
+    dominantTraits: string[];
+    recessiveTraits: string[];
+    segregationRatio?: string;
+    variantCount?: number;
+  };
 }
 
 export interface GameState {
@@ -179,15 +173,13 @@ export interface GameState {
   inventory: HarvestedItem[];
   consumables: Consumable[];
   encyclopedia: Record<string, DiscoveredStrain>;
+  researchLog: ResearchRecord[];
   money: number;
   xp: number;
   level: number;
   lastSavedAt: number;
-  missions: Mission[];
-  marketPrices: MarketPrice[];
-  currentWeather: WeatherCondition;
-  weatherUntil: number;
   totalHarvests: number;
   totalCrossbreeds: number;
   unlockedPots: number;
+  totalMoneyEarned: number;
 }
